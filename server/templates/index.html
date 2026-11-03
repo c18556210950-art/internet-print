@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>互联网打印</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: #f4f6f8; color: #17202a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 26px 18px 60px; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+    h1 { font-size: 23px; margin: 0; }
+    .sub { color: #667085; font-size: 13px; margin-top: 4px; }
+    .logout { border: 0; background: transparent; color: #667085; font-size: 14px; cursor: pointer; }
+    .card {
+      background: #fff; border-radius: 18px; padding: 22px; box-shadow: 0 8px 30px rgba(20,40,70,.08);
+      margin-bottom: 18px;
+    }
+    .drop {
+      border: 1.5px dashed #b8c4d4; border-radius: 14px; padding: 24px 16px; text-align: center;
+      background: #fafcff;
+    }
+    .drop input[type=file] { max-width: 100%; font-size: 14px; }
+    .hint { color: #667085; font-size: 12px; margin-top: 9px; line-height: 1.6; }
+    .options { display:flex; gap:16px; margin-top:18px; flex-wrap:wrap; }
+    .options label { flex:1; min-width:180px; font-size:14px; color:#344054; }
+    select { display:block; width:100%; margin-top:7px; padding:11px; border:1px solid #cbd5e1; border-radius:9px; background:white; font-size:15px; }
+    .primary {
+      width: 100%; margin-top: 16px; padding: 13px; border: 0; border-radius: 11px;
+      background: #1570ef; color: #fff; font-size: 16px; font-weight: 600; cursor: pointer;
+    }
+    .primary:hover { background: #175cd3; }
+    h2 { font-size: 15px; margin: 0 0 12px; color: #344054; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 10px 6px; border-bottom: 1px solid #eef2f6; vertical-align: top; }
+    th { color: #667085; font-weight: 500; font-size: 12px; }
+    td.name { word-break: break-all; }
+    .tag { display: inline-block; padding: 3px 9px; border-radius: 99px; font-size: 12px; white-space: nowrap; }
+    .pending { background: #fff7e6; color: #b54708; }
+    .printing { background: #e8f1ff; color: #175cd3; }
+    .done { background: #e9f8ef; color: #067647; }
+    .failed { background: #fef3f2; color: #b42318; }
+    .muted { color: #98a2b3; font-size: 12px; }
+    .empty { color: #98a2b3; text-align: center; padding: 18px 0; font-size: 14px; }
+    .msg { color: #b42318; font-size: 12px; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>互联网打印</h1>
+        <div class="sub">上传文件，选择打印方式</div>
+      </div>
+      <form method="post" action="logout">
+        <button class="logout" type="submit">退出</button>
+      </form>
+    </header>
+
+    <section class="card">
+      <form method="post" action="upload" enctype="multipart/form-data" id="uploadForm">
+        <div class="drop">
+          <input type="file" name="file" id="file" required
+                 accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx,.md,.markdown,.pdf,.jpg,.jpeg,.png,.webp,.tif,.tiff,.bmp,application/pdf,image/*">
+          <div class="hint">支持 PDF、图片、Word（DOC/DOCX）、Excel（XLS/XLSX）、PPT（PPT/PPTX）、Markdown，最大 50MB。<br>统一使用 A4；Office 按文档原有分页转换，复杂排版可能有差异。Markdown 支持文字、表格、代码块，图片以说明文字代替。</div>
+        </div>
+        <div class="options">
+          <label>打印方式<select name="sides"><option value="simplex">单面</option><option value="duplexlong">双面 · 长边翻页</option><option value="duplexshort">双面 · 短边翻页</option></select></label>
+          <label>纸张方向<select name="orientation"><option value="portrait">纵向</option><option value="landscape">横向</option></select></label>
+        </div>
+        <button class="primary" type="submit" id="submitBtn">上传并打印</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>最近任务</h2>
+      <table>
+        <thead><tr><th>文件</th><th>状态</th><th>时间</th></tr></thead>
+        <tbody id="jobs">
+          {% for job in jobs %}
+          <tr>
+            <td class="name">{{ job.original_name }}
+              <div class="muted">A4 · {{ {"simplex":"单面", "duplexlong":"双面长边", "duplexshort":"双面短边"}.get(job.sides, "单面") }} · {{ "横向" if job.orientation == "landscape" else "纵向" }}</div>
+              {% if job.message %}<div class="msg">{{ job.message }}</div>{% endif %}
+            </td>
+            <td>
+              {% if job.status == 'pending' %}<span class="tag pending">等待中</span>
+              {% elif job.status == 'printing' %}<span class="tag printing">打印中</span>
+              {% elif job.status == 'done' %}<span class="tag done">已提交打印机</span>
+              {% else %}<span class="tag failed">失败</span>{% endif %}
+            </td>
+            <td class="muted">{{ job.created_at[11:16] }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="empty">还没有任务，上传一个文件试试。</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <script>
+    const labels = {pending: '等待中', printing: '打印中', done: '已提交打印机', failed: '失败'};
+    const tbody = document.getElementById('jobs');
+
+    function esc(s) {
+      return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    async function refreshJobs() {
+      try {
+        const r = await fetch('api/jobs', {headers: {'Accept': 'application/json'}});
+        if (!r.ok) return;
+        const jobs = await r.json();
+        if (!jobs.length) {
+          tbody.innerHTML = '<tr><td colspan="3" class="empty">还没有任务，上传一个文件试试。</td></tr>';
+          return;
+        }
+        tbody.innerHTML = jobs.map(j => {
+          const msg = j.message ? `<div class="msg">${esc(j.message)}</div>` : '';
+          return `<tr>
+            <td class="name">${esc(j.original_name)}<div class="muted">A4 · ${ ({simplex:"单面",duplexlong:"双面长边",duplexshort:"双面短边"})[j.sides] || "单面"} · ${j.orientation === "landscape" ? "横向" : "纵向"}</div>${msg}</td>
+            <td><span class="tag ${esc(j.status)}">${labels[j.status] || esc(j.status)}</span></td>
+            <td class="muted">${esc((j.created_at || '').slice(11,16))}</td>
+          </tr>`;
+        }).join('');
+      } catch (e) {}
+    }
+
+    document.getElementById('uploadForm').addEventListener('submit', () => {
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.textContent = '上传中…';
+    });
+
+    setInterval(refreshJobs, 1500);
+  </script>
+</body>
+</html>

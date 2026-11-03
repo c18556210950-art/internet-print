@@ -1,0 +1,6 @@
+{
+  "server_url": "https://print.example.com/print",
+  "token": "REPLACE_WITH_PRINT_AGENT_TOKEN",
+  "printer_name": "REPLACE_WITH_WINDOWS_PRINTER_NAME",
+  "poll_seconds": 0.5
+}
